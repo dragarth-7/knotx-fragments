@@ -38,6 +38,10 @@ class HttpActionLogger {
   private ActionLogger actionLogger;
   private EndpointOptions endpointOptions;
 
+  private EndpointRequest endpointRequest;
+  private HttpResponseData httpResponseData;
+  private Buffer httpResponseBody;
+
   private HttpActionLogger(ActionLogger actionLogger, EndpointOptions endpointOptions) {
     this.actionLogger = actionLogger;
     this.endpointOptions = endpointOptions;
@@ -55,45 +59,56 @@ class HttpActionLogger {
     return actionLogger.toLog().toJson();
   }
 
-  void logResponse(EndpointRequest endpointRequest, HttpResponse<Buffer> response) {
-    HttpResponseData httpResponseData = HttpResponseData.from(response);
-    JsonObject responseData = getResponseData(endpointRequest, httpResponseData);
+  void onRequestSucceeded(HttpResponse<Buffer> response) {
+    this.httpResponseData = HttpResponseData.from(response);
+    this.httpResponseBody = response.body();
+    JsonObject responseData = getResponseData(httpResponseData);
     if (isHttpErrorResponse(httpResponseData)) {
       LOGGER.error("GET {} -> Error response {}, headers[{}]",
-          logResponseData(endpointRequest, httpResponseData));
+          logResponseData());
     } else if (LOGGER.isTraceEnabled()) {
       LOGGER.trace("GET {} -> Got response {}, headers[{}]",
-          logResponseData(endpointRequest, httpResponseData));
+          logResponseData());
     }
     actionLogger.info(RESPONSE, responseData);
   }
 
-  private Object[] logResponseData(EndpointRequest request, HttpResponseData responseData) {
+  private Object[] logResponseData() {
     JsonObject headers = new JsonObject();
-    responseData.getHeaders().entries().forEach(e -> headers.put(e.getKey(), e.getValue()));
+    httpResponseData.getHeaders().entries().forEach(e -> headers.put(e.getKey(), e.getValue()));
     return new Object[]{
-        toUrl(request),
-        responseData.getStatusCode(),
+        getRequestPath(),
+        httpResponseData.getStatusCode(),
         headers
     };
   }
 
-  void logResponseOnError(EndpointRequest request, HttpResponseData httpResponseData) {
-    JsonObject responseData = getResponseData(request, httpResponseData);
+  void onResponseProcessingFailed(Throwable throwable) {
+    JsonObject responseData = getResponseData(httpResponseData);
     actionLogger.error(RESPONSE, responseData);
+    logRequest(ActionLogLevel.ERROR);
+    logError(throwable);
   }
 
-  void logErrorAndRequest(Throwable throwable, EndpointRequest request) {
-    JsonObject headers = getHeadersFromRequest(request);
-    actionLogger.error(REQUEST, new JsonObject().put("path", request.getPath())
-        .put("requestHeaders", headers));
-    actionLogger.error(throwable);
+  void onRequestFailed(Throwable throwable) {
+    logRequest(ActionLogLevel.ERROR);
+    logError(throwable);
   }
 
-  void logRequest(EndpointRequest request) {
-    JsonObject headers = getHeadersFromRequest(request);
-    actionLogger.info(REQUEST, new JsonObject().put("path", request.getPath())
-        .put("requestHeaders", headers));
+  void onRequestCreation(EndpointRequest endpointRequest) {
+    this.endpointRequest = endpointRequest;
+    logRequest(ActionLogLevel.INFO);
+  }
+
+  private void logRequest(ActionLogLevel level) {
+    JsonObject headers = getHeadersFromRequest(endpointRequest);
+    JsonObject requestLog = new JsonObject().put("path", endpointRequest.getPath())
+        .put("requestHeaders", headers);
+    if(ActionLogLevel.INFO.equals(level)) {
+      actionLogger.info(REQUEST, requestLog);
+    } else {
+      actionLogger.error(REQUEST, requestLog);
+    }
   }
 
   private JsonObject getHeadersFromRequest(EndpointRequest request) {
@@ -102,22 +117,26 @@ class HttpActionLogger {
     return headers;
   }
 
+  private void logError(Throwable throwable) {
+    actionLogger.error(throwable);
+  }
+
   private boolean isHttpErrorResponse(HttpResponseData resp) {
     return CLIENT_ERROR.contains(Integer.parseInt(resp.getStatusCode())) || SERVER_ERROR
         .contains(Integer.parseInt(resp.getStatusCode()));
   }
 
-  private JsonObject getResponseData(EndpointRequest request, HttpResponseData responseData) {
+  private JsonObject getResponseData(HttpResponseData responseData) {
     JsonObject json = responseData.toJson();
     return json.put("httpMethod", HttpMethod.GET)
-        .put("requestPath", toUrl(request));
+        .put("requestPath", getRequestPath());
   }
 
-  private String toUrl(EndpointRequest request) {
-    return endpointOptions.getDomain() + ":" + endpointOptions.getPort() + request.getPath();
+  private String getRequestPath() {
+    return endpointOptions.getDomain() + ":" + endpointOptions.getPort() + endpointRequest.getPath();
   }
 
-  void logInfoResponseBody(EndpointResponse endpointResponse) {
-    actionLogger.info(RESPONSE_BODY, endpointResponse.getBody().toString());
+  void onResponseCodeVerified() {
+    actionLogger.info(RESPONSE_BODY, httpResponseBody != null ? httpResponseBody.toString() : Buffer.buffer());
   }
 }

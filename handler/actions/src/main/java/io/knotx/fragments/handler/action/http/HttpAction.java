@@ -90,8 +90,7 @@ public class HttpAction implements Action {
   }
 
   @Override
-  public void apply(FragmentContext fragmentContext,
-      Handler<AsyncResult<FragmentResult>> resultHandler) {
+  public void apply(FragmentContext fragmentContext, Handler<AsyncResult<FragmentResult>> resultHandler) {
     HttpActionLogger httpActionLogger = HttpActionLogger.create(actionAlias, logLevel, endpointOptions);
     process(fragmentContext, httpActionLogger)
         .map(Future::succeededFuture)
@@ -99,21 +98,15 @@ public class HttpAction implements Action {
         .subscribe();
   }
 
-  private FragmentResult errorTransition(FragmentContext fragmentContext,
-      HttpActionLogger actionLogger) {
-    return new FragmentResult(fragmentContext.getFragment(), FragmentResult.ERROR_TRANSITION, actionLogger.getJsonLog());
-  }
-
   private Single<FragmentResult> process(FragmentContext fragmentContext,
       HttpActionLogger httpActionLogger) {
     return Single.just(fragmentContext)
         .map(requestComposer::createEndpointRequest)
-        .doOnSuccess(httpActionLogger::logRequest)
+        .doOnSuccess(httpActionLogger::onRequestCreation)
         .flatMap(
             request -> invokeEndpoint(request)
-                .doOnSuccess(
-                    response -> httpActionLogger.logResponse(request, response))
-                .doOnError(throwable -> httpActionLogger.logErrorAndRequest(throwable, request))
+                .doOnSuccess(httpActionLogger::onRequestSucceeded)
+                .doOnError(httpActionLogger::onRequestFailed)
                 .map(EndpointResponse::fromHttpResponse)
                 .onErrorReturn(HttpAction::handleTimeout)
                 .map(response -> createFragmentResult(fragmentContext, request, response,
@@ -127,6 +120,20 @@ public class HttpAction implements Action {
         .map(this::createHttpRequest)
         .doOnSuccess(this::addPredicates)
         .flatMap(HttpRequest::rxSend);
+  }
+
+  private HttpRequest<Buffer> createHttpRequest(EndpointRequest endpointRequest) {
+    HttpRequest<Buffer> request = webClient
+        .request(HttpMethod.GET, endpointOptions.getPort(), endpointOptions.getDomain(),
+            endpointRequest.getPath())
+        .timeout(httpActionOptions.getRequestTimeoutMs());
+    endpointRequest.getHeaders().entries()
+        .forEach(entry -> request.putHeader(entry.getKey(), entry.getValue()));
+    return request;
+  }
+
+  private FragmentResult errorTransition(FragmentContext fragmentContext, HttpActionLogger actionLogger) {
+    return new FragmentResult(fragmentContext.getFragment(), FragmentResult.ERROR_TRANSITION, actionLogger.getJsonLog());
   }
 
   private void addPredicates(HttpRequest<Buffer> request) {
@@ -146,16 +153,6 @@ public class HttpAction implements Action {
     throw Exceptions.propagate(throwable);
   }
 
-  private HttpRequest<Buffer> createHttpRequest(EndpointRequest endpointRequest) {
-    HttpRequest<Buffer> request = webClient
-        .request(HttpMethod.GET, endpointOptions.getPort(), endpointOptions.getDomain(),
-            endpointRequest.getPath())
-        .timeout(httpActionOptions.getRequestTimeoutMs());
-    endpointRequest.getHeaders().entries()
-        .forEach(entry -> request.putHeader(entry.getKey(), entry.getValue()));
-    return request;
-  }
-
   private void attachResponsePredicatesToRequest(HttpRequest<Buffer> request,
       Set<String> predicates) {
     predicates.stream()
@@ -170,18 +167,16 @@ public class HttpAction implements Action {
     final ActionPayload payload;
     final String transition;
     if (SUCCESS.contains(endpointResponse.getStatusCode().code())) {
-      actionLogger.logInfoResponseBody(endpointResponse);
-      payload = getActionPayload(endpointRequest, endpointResponse, actionLogger,
-          request);
+      actionLogger.onResponseCodeVerified();
+      payload = getActionPayload(endpointResponse, actionLogger, request);
       transition = FragmentResult.SUCCESS_TRANSITION;
     } else {
       payload = handleErrorResponse(request, endpointResponse.getStatusCode().toString(),
           endpointResponse.getStatusMessage());
       transition = getErrorTransition(endpointResponse);
-      actionLogger.logErrorAndRequest(new IOException(
+      actionLogger.onResponseProcessingFailed(new IOException(
           "The service responded with unsuccessful status code: " + endpointResponse.getStatusCode()
-              .code()), endpointRequest);
-      actionLogger.logResponseOnError(endpointRequest, HttpResponseData.from(endpointResponse));
+              .code()));
     }
     updateResponseMetadata(endpointResponse, payload);
     Fragment fragment = fragmentContext.getFragment();
@@ -199,18 +194,14 @@ public class HttpAction implements Action {
     return transition;
   }
 
-  private ActionPayload getActionPayload(EndpointRequest endpointRequest,
-      EndpointResponse endpointResponse, HttpActionLogger actionLogger, ActionRequest request) {
-    ActionPayload payload;
+  private ActionPayload getActionPayload(EndpointResponse endpointResponse,
+      HttpActionLogger actionLogger, ActionRequest request) {
     try {
-      payload = handleSuccessResponse(endpointResponse, request);
+      return handleSuccessResponse(endpointResponse, request);
     } catch (Exception e) {
-      actionLogger.logErrorAndRequest(e, endpointRequest);
-      actionLogger.logResponseOnError(endpointRequest,
-          HttpResponseData.from(endpointResponse));
+      actionLogger.onResponseProcessingFailed(e);
       throw e;
     }
-    return payload;
   }
 
   private ActionRequest createActionRequest(EndpointRequest endpointRequest) {
