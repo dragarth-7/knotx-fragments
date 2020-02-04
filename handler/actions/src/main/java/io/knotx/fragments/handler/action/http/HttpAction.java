@@ -39,7 +39,6 @@ import io.reactivex.exceptions.Exceptions;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
 import io.vertx.core.http.HttpMethod;
@@ -89,17 +88,17 @@ public class HttpAction implements Action {
         throw new ReplyException(ReplyFailure.RECIPIENT_FAILURE, result.message());
       });
 
-  HttpAction(Vertx vertx, HttpActionOptions httpActionOptions, String actionAlias) {
+  HttpAction(WebClient webClient, HttpActionOptions httpActionOptions, String actionAlias) {
     this.httpActionOptions = httpActionOptions;
-    this.webClient = WebClient.create(io.vertx.reactivex.core.Vertx.newInstance(vertx),
-        httpActionOptions.getWebClientOptions());
+    this.webClient = webClient;
     this.endpointOptions = httpActionOptions.getEndpointOptions();
     this.actionAlias = actionAlias;
     predicatesProvider = new ResponsePredicatesProvider();
     this.isJsonPredicate = this.httpActionOptions.getResponseOptions().getPredicates()
         .contains(JSON);
     this.isForceJson = httpActionOptions.getResponseOptions().isForceJson();
-    this.logLevel = ActionLogLevel.fromConfig(httpActionOptions.getLogLevel(), ActionLogLevel.ERROR);
+    this.logLevel = ActionLogLevel
+        .fromConfig(httpActionOptions.getLogLevel(), ActionLogLevel.ERROR);
   }
 
   @Override
@@ -110,7 +109,7 @@ public class HttpAction implements Action {
         .onErrorReturn(error -> logAndErrorTransition(error, fragmentContext, actionLogger))
         .map(Future::succeededFuture)
         .map(future -> future.setHandler(resultHandler))
-    .subscribe();
+        .subscribe();
   }
 
   private FragmentResult logAndErrorTransition(Throwable error, FragmentContext fragmentContext,

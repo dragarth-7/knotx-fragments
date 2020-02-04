@@ -44,9 +44,11 @@ import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import io.vertx.reactivex.core.MultiMap;
+import io.vertx.reactivex.ext.web.client.WebClient;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
@@ -507,7 +509,7 @@ class HttpActionTest {
         .setDomain("localhost")
         .setPort(wireMockServer.port());
 
-    HttpAction tested = new HttpAction(vertx,
+    HttpAction tested = new HttpAction(createDefaultWebClient(vertx),
         new HttpActionOptions()
             .setEndpointOptions(endpointOptions)
             .setRequestTimeoutMs(requestTimeoutMs)
@@ -535,7 +537,7 @@ class HttpActionTest {
         .setPort(wireMockServer.port())
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
-    HttpAction tested = new HttpAction(vertx,
+    HttpAction tested = new HttpAction(createDefaultWebClient(vertx),
         new HttpActionOptions().setEndpointOptions(endpointOptions)
             .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
@@ -626,7 +628,7 @@ class HttpActionTest {
         .setPort(wireMockServer.port())
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
-    HttpAction tested = new HttpAction(vertx,
+    HttpAction tested = new HttpAction(createDefaultWebClient(vertx),
         new HttpActionOptions().setEndpointOptions(endpointOptions)
             .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
@@ -659,7 +661,7 @@ class HttpActionTest {
         .setPort(wireMockServer.port())
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
-    HttpAction tested = new HttpAction(vertx,
+    HttpAction tested = new HttpAction(createDefaultWebClient(vertx),
         new HttpActionOptions().setEndpointOptions(endpointOptions)
             .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
@@ -690,7 +692,7 @@ class HttpActionTest {
         .setPort(wireMockServer.port())
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
-    HttpAction tested = new HttpAction(vertx,
+    HttpAction tested = new HttpAction(createDefaultWebClient(vertx),
         new HttpActionOptions().setEndpointOptions(endpointOptions)
             .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
@@ -721,7 +723,7 @@ class HttpActionTest {
         .setPort(wireMockServer.port())
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
-    HttpAction tested = new HttpAction(vertx,
+    HttpAction tested = new HttpAction(createDefaultWebClient(vertx),
         new HttpActionOptions().setEndpointOptions(endpointOptions)
             .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
@@ -756,7 +758,7 @@ class HttpActionTest {
         .setPort(wireMockServer.port())
         .setAllowedRequestHeaders(Collections.singleton("requestHeader"));
 
-    return new HttpAction(vertx,
+    return new HttpAction(createDefaultWebClient(vertx),
         new HttpActionOptions().setEndpointOptions(endpointOptions)
             .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
   }
@@ -775,7 +777,7 @@ class HttpActionTest {
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")))
         .setAdditionalHeaders(additionalHeaders);
 
-    return new HttpAction(vertx,
+    return new HttpAction(createDefaultWebClient(vertx),
         new HttpActionOptions().setEndpointOptions(endpointOptions)
             .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
   }
@@ -798,7 +800,7 @@ class HttpActionTest {
         .setPredicates(predicates)
         .setForceJson(forceJson);
 
-    return new HttpAction(vertx,
+    return new HttpAction(createDefaultWebClient(vertx),
         new HttpActionOptions()
             .setEndpointOptions(endpointOptions)
             .setResponseOptions(responseOptions)
@@ -832,5 +834,9 @@ class HttpActionTest {
 
   private Fragment createFragment() {
     return new Fragment("type", EMPTY_JSON, "expectedBody");
+  }
+
+  private WebClient createDefaultWebClient(Vertx vertx) {
+    return WebClient.create(io.vertx.reactivex.core.Vertx.newInstance(vertx), new WebClientOptions());
   }
 }

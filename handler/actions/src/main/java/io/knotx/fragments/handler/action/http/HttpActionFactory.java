@@ -21,9 +21,12 @@ import io.knotx.fragments.handler.api.ActionFactory;
 import io.knotx.fragments.handler.api.Cacheable;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import io.vertx.reactivex.ext.web.client.WebClient;
 
 @Cacheable
 public class HttpActionFactory implements ActionFactory {
+
+  private WebClientCache webClientCache = new WebClientCache();
 
   @Override
   public String getName() {
@@ -38,9 +41,11 @@ public class HttpActionFactory implements ActionFactory {
 
     HttpActionOptions options = new HttpActionOptions(config);
 
+    WebClient webClient = webClientCache.getOrCreate(vertx, options.getWebClientOptions());
+
     switch (options.getHttpMethod()) {
       case GET:
-        return new HttpAction(vertx, options, alias);
+        return new HttpAction(webClient, options, alias);
       default:
         throw new ActionConfigurationException(
             "HttpMethod configured for HttpAction is not supported");
