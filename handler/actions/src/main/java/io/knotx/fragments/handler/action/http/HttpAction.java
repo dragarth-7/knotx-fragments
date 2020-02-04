@@ -20,8 +20,6 @@ import static io.netty.handler.codec.http.HttpStatusClass.CLIENT_ERROR;
 import static io.netty.handler.codec.http.HttpStatusClass.SERVER_ERROR;
 import static io.netty.handler.codec.http.HttpStatusClass.SUCCESS;
 
-import io.knotx.commons.http.request.AllowedHeadersFilter;
-import io.knotx.commons.http.request.MultiMapCollector;
 import io.knotx.fragments.api.Fragment;
 import io.knotx.fragments.handler.api.Action;
 import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
@@ -30,9 +28,6 @@ import io.knotx.fragments.handler.api.domain.FragmentContext;
 import io.knotx.fragments.handler.api.domain.FragmentResult;
 import io.knotx.fragments.handler.api.domain.payload.ActionPayload;
 import io.knotx.fragments.handler.api.domain.payload.ActionRequest;
-import io.knotx.server.api.context.ClientRequest;
-import io.knotx.server.common.placeholders.PlaceholdersResolver;
-import io.knotx.server.common.placeholders.SourceDefinitions;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.Single;
 import io.reactivex.exceptions.Exceptions;
@@ -53,10 +48,8 @@ import io.vertx.reactivex.ext.web.client.HttpRequest;
 import io.vertx.reactivex.ext.web.client.HttpResponse;
 import io.vertx.reactivex.ext.web.client.WebClient;
 import java.io.IOException;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
-import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 
 public class HttpAction implements Action {
@@ -66,8 +59,6 @@ public class HttpAction implements Action {
   private static final Logger LOGGER = LoggerFactory.getLogger(HttpAction.class);
   private static final String METADATA_HEADERS_KEY = "headers";
   private static final String METADATA_STATUS_CODE_KEY = "statusCode";
-  private static final String PLACEHOLDER_PREFIX_PAYLOAD = "payload";
-  private static final String PLACEHOLDER_PREFIX_CONFIG = "config";
   private static final String JSON = "JSON";
   private static final String APPLICATION_JSON = "application/json";
   private static final String CONTENT_TYPE = "Content-Type";
@@ -88,6 +79,8 @@ public class HttpAction implements Action {
         throw new ReplyException(ReplyFailure.RECIPIENT_FAILURE, result.message());
       });
 
+  private EndpointRequestComposer requestComposer;
+
   HttpAction(WebClient webClient, HttpActionOptions httpActionOptions, String actionAlias) {
     this.httpActionOptions = httpActionOptions;
     this.webClient = webClient;
@@ -99,6 +92,7 @@ public class HttpAction implements Action {
     this.isForceJson = httpActionOptions.getResponseOptions().isForceJson();
     this.logLevel = ActionLogLevel
         .fromConfig(httpActionOptions.getLogLevel(), ActionLogLevel.ERROR);
+    this.requestComposer = new EndpointRequestComposer(endpointOptions);
   }
 
   @Override
@@ -122,7 +116,7 @@ public class HttpAction implements Action {
   private Single<FragmentResult> process(FragmentContext fragmentContext,
       ActionLogger actionLogger) {
     return Single.just(fragmentContext)
-        .map(this::createEndpointRequest)
+        .map(requestComposer::createEndpointRequest)
         .doOnSuccess(request -> logRequest(actionLogger, request))
         .flatMap(
             request -> invokeEndpoint(request)
@@ -202,25 +196,6 @@ public class HttpAction implements Action {
         .forEach(p -> request.expect(predicatesProvider.fromName(p)));
   }
 
-  private EndpointRequest createEndpointRequest(FragmentContext context) {
-    ClientRequest clientRequest = context.getClientRequest();
-    SourceDefinitions sourceDefinitions = buildSourceDefinitions(context, clientRequest);
-    String path = PlaceholdersResolver.resolve(endpointOptions.getPath(), sourceDefinitions);
-    MultiMap requestHeaders = getRequestHeaders(clientRequest);
-    return new EndpointRequest(path, requestHeaders);
-  }
-
-  private SourceDefinitions buildSourceDefinitions(FragmentContext context,
-      ClientRequest clientRequest) {
-    return SourceDefinitions.builder()
-        .addClientRequestSource(clientRequest)
-        .addJsonObjectSource(context.getFragment()
-            .getPayload(), PLACEHOLDER_PREFIX_PAYLOAD)
-        .addJsonObjectSource(context.getFragment()
-            .getConfiguration(), PLACEHOLDER_PREFIX_CONFIG)
-        .build();
-  }
-
   private void logResponse(EndpointRequest endpointRequest, HttpResponseData resp,
       ActionLogger actionLogger) {
     JsonObject responseData = getResponseData(endpointRequest, resp);
@@ -257,22 +232,6 @@ public class HttpAction implements Action {
 
   private String toUrl(EndpointRequest request) {
     return endpointOptions.getDomain() + ":" + endpointOptions.getPort() + request.getPath();
-  }
-
-  private MultiMap getRequestHeaders(ClientRequest clientRequest) {
-    MultiMap filteredHeaders = getFilteredHeaders(clientRequest.getHeaders(),
-        endpointOptions.getAllowedRequestHeadersPatterns());
-    if (endpointOptions.getAdditionalHeaders() != null) {
-      endpointOptions.getAdditionalHeaders()
-          .forEach(entry -> filteredHeaders.add(entry.getKey(), entry.getValue().toString()));
-    }
-    return filteredHeaders;
-  }
-
-  private MultiMap getFilteredHeaders(MultiMap headers, List<Pattern> allowedHeaders) {
-    return headers.names().stream()
-        .filter(AllowedHeadersFilter.create(allowedHeaders))
-        .collect(MultiMapCollector.toMultiMap(o -> o, headers::getAll));
   }
 
   private FragmentResult createFragmentResult(FragmentContext fragmentContext,
