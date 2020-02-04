@@ -510,7 +510,9 @@ class HttpActionTest {
     HttpAction tested = new HttpAction(vertx,
         new HttpActionOptions()
             .setEndpointOptions(endpointOptions)
-            .setRequestTimeoutMs(requestTimeoutMs), ACTION_ALIAS, actionLogLevel);
+            .setRequestTimeoutMs(requestTimeoutMs)
+            .setLogLevel(actionLogLevel.getLevel()),
+        ACTION_ALIAS);
 
     // then
     verifyExecution(tested, clientRequest, createFragment(),
@@ -534,7 +536,8 @@ class HttpActionTest {
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
     HttpAction tested = new HttpAction(vertx,
-        new HttpActionOptions().setEndpointOptions(endpointOptions), ACTION_ALIAS, actionLogLevel);
+        new HttpActionOptions().setEndpointOptions(endpointOptions)
+            .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
     // then
     verifyExecution(tested, clientRequest, createFragment(),
@@ -624,7 +627,8 @@ class HttpActionTest {
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
     HttpAction tested = new HttpAction(vertx,
-        new HttpActionOptions().setEndpointOptions(endpointOptions), ACTION_ALIAS, actionLogLevel);
+        new HttpActionOptions().setEndpointOptions(endpointOptions)
+            .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
     // then
     verifyExecution(tested, clientRequest, createFragment(),
@@ -656,7 +660,8 @@ class HttpActionTest {
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
     HttpAction tested = new HttpAction(vertx,
-        new HttpActionOptions().setEndpointOptions(endpointOptions), ACTION_ALIAS, actionLogLevel);
+        new HttpActionOptions().setEndpointOptions(endpointOptions)
+            .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
     // then
     verifyExecution(tested, clientRequest, createFragment(),
@@ -686,7 +691,8 @@ class HttpActionTest {
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
     HttpAction tested = new HttpAction(vertx,
-        new HttpActionOptions().setEndpointOptions(endpointOptions), ACTION_ALIAS, actionLogLevel);
+        new HttpActionOptions().setEndpointOptions(endpointOptions)
+            .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
     // then
     verifyExecution(tested, clientRequest, createFragment(),
@@ -716,7 +722,8 @@ class HttpActionTest {
         .setAllowedRequestHeaderPatterns(Collections.singletonList(Pattern.compile(".*")));
 
     HttpAction tested = new HttpAction(vertx,
-        new HttpActionOptions().setEndpointOptions(endpointOptions), ACTION_ALIAS, actionLogLevel);
+        new HttpActionOptions().setEndpointOptions(endpointOptions)
+            .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
 
     // then
     verifyExecution(tested, clientRequest,
@@ -750,7 +757,8 @@ class HttpActionTest {
         .setAllowedRequestHeaders(Collections.singleton("requestHeader"));
 
     return new HttpAction(vertx,
-        new HttpActionOptions().setEndpointOptions(endpointOptions), ACTION_ALIAS, actionLogLevel);
+        new HttpActionOptions().setEndpointOptions(endpointOptions)
+            .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
   }
 
   private HttpAction getHttpActionWithAdditionalHeaders(Vertx vertx,
@@ -768,7 +776,8 @@ class HttpActionTest {
         .setAdditionalHeaders(additionalHeaders);
 
     return new HttpAction(vertx,
-        new HttpActionOptions().setEndpointOptions(endpointOptions), ACTION_ALIAS, actionLogLevel);
+        new HttpActionOptions().setEndpointOptions(endpointOptions)
+            .setLogLevel(actionLogLevel.getLevel()), ACTION_ALIAS);
   }
 
   private HttpAction setupTestingInstances(Vertx vertx, String endpointPath, String body,
@@ -792,8 +801,9 @@ class HttpActionTest {
     return new HttpAction(vertx,
         new HttpActionOptions()
             .setEndpointOptions(endpointOptions)
-            .setResponseOptions(responseOptions),
-        ACTION_ALIAS, logLevel);
+            .setResponseOptions(responseOptions)
+            .setLogLevel(logLevel.getLevel()),
+        ACTION_ALIAS);
   }
 
   private void verifyExecution(HttpAction tested, ClientRequest clientRequest, Fragment fragment,

@@ -18,6 +18,7 @@ package io.knotx.fragments.handler.action.http;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.knotx.fragments.handler.action.exception.ActionConfigurationException;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
@@ -26,17 +27,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(VertxExtension.class)
-public class HttpActionFactoryTest {
+class HttpActionFactoryTest {
 
   @Test
   @DisplayName("Expect exception when doAction provided")
-  void expectExceptionWhenDoActionProvided(Vertx vertx) throws Throwable {
+  void expectExceptionWhenDoActionProvided(Vertx vertx) {
     HttpActionFactory actionFactory = new HttpActionFactory();
     JsonObject config = new JsonObject();
-    assertThrows(IllegalArgumentException.class, () -> {
-      actionFactory.create("", config, vertx, (fragmentContext, resultHandler) -> {
-      });
-    });
+    assertThrows(ActionConfigurationException.class,
+        () -> actionFactory.create("", config, vertx, (fragmentContext, resultHandler) -> {})
+    );
   }
 
   @Test

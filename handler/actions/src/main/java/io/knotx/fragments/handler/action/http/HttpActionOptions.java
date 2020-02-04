@@ -16,6 +16,7 @@
 package io.knotx.fragments.handler.action.http;
 
 import io.vertx.codegen.annotations.DataObject;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClientOptions;
 
@@ -27,6 +28,7 @@ public class HttpActionOptions {
 
   private static final long DEFAULT_REQUEST_TIMEOUT = 0L;
 
+  private HttpMethod httpMethod = HttpMethod.GET;
   private WebClientOptions webClientOptions = new WebClientOptions();
   private EndpointOptions endpointOptions = new EndpointOptions();
   private ResponseOptions responseOptions = new ResponseOptions();
@@ -38,6 +40,21 @@ public class HttpActionOptions {
 
   public HttpActionOptions(JsonObject json) {
     HttpActionOptionsConverter.fromJson(json, this);
+  }
+
+  public HttpMethod getHttpMethod() {
+    return httpMethod;
+  }
+
+  /**
+   * Set the {@code HttpMethod} used for performing the request
+   *
+   * @param httpMethod HTTP method
+   * @return a reference to this, so the API can be used fluently
+   */
+  public HttpActionOptions setHttpMethod(HttpMethod httpMethod) {
+    this.httpMethod = httpMethod;
+    return this;
   }
 
   public WebClientOptions getWebClientOptions() {

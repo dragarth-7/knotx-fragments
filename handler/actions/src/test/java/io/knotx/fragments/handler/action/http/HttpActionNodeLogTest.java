@@ -59,7 +59,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith(VertxExtension.class)
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.WARN)
-public class HttpActionNodeLogTest {
+class HttpActionNodeLogTest {
 
   private static final String ACTION_ALIAS = "httpAction";
   private static final String RAW_BODY = "<html>Hello</html>";
@@ -249,8 +249,9 @@ public class HttpActionNodeLogTest {
     return new HttpAction(vertx,
         new HttpActionOptions()
             .setEndpointOptions(endpointOptions)
-            .setResponseOptions(responseOptions),
-        ACTION_ALIAS, logLevel);
+            .setResponseOptions(responseOptions)
+          .setLogLevel(logLevel.getLevel()),
+        ACTION_ALIAS);
   }
 
   private static void assertRequestLogs(JsonObject requestLog) {

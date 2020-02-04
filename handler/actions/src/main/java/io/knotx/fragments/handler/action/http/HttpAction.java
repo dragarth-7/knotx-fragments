@@ -89,8 +89,7 @@ public class HttpAction implements Action {
         throw new ReplyException(ReplyFailure.RECIPIENT_FAILURE, result.message());
       });
 
-  HttpAction(Vertx vertx, HttpActionOptions httpActionOptions, String actionAlias,
-      ActionLogLevel logLevel) {
+  HttpAction(Vertx vertx, HttpActionOptions httpActionOptions, String actionAlias) {
     this.httpActionOptions = httpActionOptions;
     this.webClient = WebClient.create(io.vertx.reactivex.core.Vertx.newInstance(vertx),
         httpActionOptions.getWebClientOptions());
@@ -100,7 +99,7 @@ public class HttpAction implements Action {
     this.isJsonPredicate = this.httpActionOptions.getResponseOptions().getPredicates()
         .contains(JSON);
     this.isForceJson = httpActionOptions.getResponseOptions().isForceJson();
-    this.logLevel = logLevel;
+    this.logLevel = ActionLogLevel.fromConfig(httpActionOptions.getLogLevel(), ActionLogLevel.ERROR);
   }
 
   @Override
@@ -110,7 +109,8 @@ public class HttpAction implements Action {
     process(fragmentContext, actionLogger)
         .onErrorReturn(error -> logAndErrorTransition(error, fragmentContext, actionLogger))
         .map(Future::succeededFuture)
-        .subscribe(future -> future.setHandler(resultHandler));
+        .map(future -> future.setHandler(resultHandler))
+    .subscribe();
   }
 
   private FragmentResult logAndErrorTransition(Throwable error, FragmentContext fragmentContext,
@@ -131,7 +131,7 @@ public class HttpAction implements Action {
                     response -> logResponse(request, HttpResponseData.from(response), actionLogger))
                 .doOnError(throwable -> logErrorAndRequest(actionLogger, throwable, request))
                 .map(EndpointResponse::fromHttpResponse)
-                .onErrorReturn(this::handleTimeout)
+                .onErrorReturn(HttpAction::handleTimeout)
                 .map(response -> createFragmentResult(fragmentContext, request, response,
                     actionLogger)));
   }
@@ -178,7 +178,7 @@ public class HttpAction implements Action {
     actionLogger.error(RESPONSE, responseData);
   }
 
-  private EndpointResponse handleTimeout(Throwable throwable) {
+  private static EndpointResponse handleTimeout(Throwable throwable) {
     if (throwable instanceof TimeoutException) {
       LOGGER.error("Error timeout: ", throwable);
       return new EndpointResponse(HttpResponseStatus.REQUEST_TIMEOUT);

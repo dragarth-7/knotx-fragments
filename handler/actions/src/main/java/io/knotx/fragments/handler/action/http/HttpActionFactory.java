@@ -15,9 +15,9 @@
  */
 package io.knotx.fragments.handler.action.http;
 
+import io.knotx.fragments.handler.action.exception.ActionConfigurationException;
 import io.knotx.fragments.handler.api.Action;
 import io.knotx.fragments.handler.api.ActionFactory;
-import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 
@@ -30,12 +30,19 @@ public class HttpActionFactory implements ActionFactory {
 
   @Override
   public Action create(String alias, JsonObject config, Vertx vertx, Action doAction) {
-    // TODO add custom exception here (ActionConfigurationException)
     if (doAction != null) {
-      throw new IllegalArgumentException("Http Action can not wrap another action");
+      throw new ActionConfigurationException("Http Action can not wrap another action");
     }
-    return new HttpAction(vertx, new HttpActionOptions(config), alias,
-        ActionLogLevel.fromConfig(config));
+
+    HttpActionOptions options = new HttpActionOptions(config);
+
+    switch (options.getHttpMethod()) {
+      case GET:
+        return new HttpAction(vertx, options, alias);
+      default:
+        throw new ActionConfigurationException(
+            "HttpMethod configured for HttpAction is not supported");
+    }
   }
 
 }
