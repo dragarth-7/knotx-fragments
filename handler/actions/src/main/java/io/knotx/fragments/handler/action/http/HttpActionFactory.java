@@ -18,9 +18,11 @@ package io.knotx.fragments.handler.action.http;
 import io.knotx.fragments.handler.action.exception.ActionConfigurationException;
 import io.knotx.fragments.handler.api.Action;
 import io.knotx.fragments.handler.api.ActionFactory;
+import io.knotx.fragments.handler.api.Cacheable;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 
+@Cacheable
 public class HttpActionFactory implements ActionFactory {
 
   @Override
