@@ -25,6 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import io.knotx.fragments.api.Fragment;
+import io.knotx.fragments.handler.action.http.options.EndpointOptions;
+import io.knotx.fragments.handler.action.http.options.HttpActionOptions;
+import io.knotx.fragments.handler.action.http.options.ResponseOptions;
 import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
 import io.knotx.fragments.handler.api.domain.FragmentContext;
 import io.knotx.fragments.handler.api.domain.FragmentResult;

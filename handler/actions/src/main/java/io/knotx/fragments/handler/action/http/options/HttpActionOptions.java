@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.knotx.fragments.handler.action.http;
+package io.knotx.fragments.handler.action.http.options;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.http.HttpMethod;
@@ -52,7 +52,7 @@ public class HttpActionOptions {
    * @param httpMethod HTTP method
    * @return a reference to this, so the API can be used fluently
    */
-  public HttpActionOptions setHttpMethod(HttpMethod httpMethod) {
+  HttpActionOptions setHttpMethod(HttpMethod httpMethod) {
     this.httpMethod = httpMethod;
     return this;
   }
@@ -69,7 +69,7 @@ public class HttpActionOptions {
    * @param webClientOptions {@link WebClientOptions} object
    * @return a reference to this, so the API can be used fluently
    */
-  public HttpActionOptions setWebClientOptions(WebClientOptions webClientOptions) {
+  HttpActionOptions setWebClientOptions(WebClientOptions webClientOptions) {
     this.webClientOptions = webClientOptions;
     return this;
   }

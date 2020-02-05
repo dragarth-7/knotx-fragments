@@ -1,10 +1,27 @@
-package io.knotx.fragments.handler.action.http;
+/*
+ * Copyright (C) 2019 Knot.x Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.knotx.fragments.handler.action.http.log;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
+import io.knotx.fragments.handler.action.http.options.EndpointOptions;
+import io.knotx.fragments.handler.action.http.EndpointRequest;
 import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
 import io.vertx.core.http.HttpVersion;
 import io.vertx.core.json.JsonArray;
@@ -29,12 +46,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class HttpActionLoggerTest {
 
   private static final String SAMPLE_ACTION_ALIAS = "TestedAction";
+  private static final String REQUEST = "request";
+  private static final String RESPONSE = "response";
+  private static final String RESPONSE_BODY = "responseBody";
+  private static final String ERRORS = "errors";
 
   private EndpointOptions endpointOptions;
   private EndpointRequest endpointRequest;
 
   @Mock
-  private HttpResponse<Buffer> response;
+  private HttpResponse<Buffer> httpResponse;
 
   private HttpActionLogger tested;
 
@@ -44,6 +65,7 @@ class HttpActionLoggerTest {
         Arguments.of(ActionLogLevel.ERROR, false, false, false, false)
     );
   }
+
   private static Stream<Arguments> requestFailureCases() {
     return Stream.of( // logLevel, request, response, responseBody, error
         Arguments.of(ActionLogLevel.INFO, true, false, false, true),
@@ -105,7 +127,7 @@ class HttpActionLoggerTest {
 
   private void whenRequestSucceeded() {
     tested.onRequestCreation(endpointRequest);
-    tested.onRequestSucceeded(response);
+    tested.onRequestSucceeded(httpResponse);
     tested.onResponseCodeSuccessful();
   }
 
@@ -192,11 +214,11 @@ class HttpActionLoggerTest {
   }
 
   private void givenResponse(int httpStatus) {
-    when(response.version()).thenReturn(HttpVersion.HTTP_2);
-    when(response.statusCode()).thenReturn(httpStatus);
-    when(response.statusMessage()).thenReturn("");
-    when(response.headers()).thenReturn(MultiMap.caseInsensitiveMultiMap());
-    when(response.trailers()).thenReturn(MultiMap.caseInsensitiveMultiMap());
+    when(httpResponse.version()).thenReturn(HttpVersion.HTTP_2);
+    when(httpResponse.statusCode()).thenReturn(httpStatus);
+    when(httpResponse.statusMessage()).thenReturn("");
+    when(httpResponse.headers()).thenReturn(MultiMap.caseInsensitiveMultiMap());
+    when(httpResponse.trailers()).thenReturn(MultiMap.caseInsensitiveMultiMap());
   }
 
   private void whenRequestFailed() {
@@ -212,19 +234,19 @@ class HttpActionLoggerTest {
 
   private void whenResponseCodeUnsuccessful() {
     tested.onRequestCreation(endpointRequest);
-    tested.onRequestSucceeded(response);
+    tested.onRequestSucceeded(httpResponse);
     tested.onResponseCodeUnsuccessful(new IOException("Unsuccessful response code"));
   }
 
   private void whenResponseProcessingFailed() {
     tested.onRequestCreation(endpointRequest);
-    tested.onRequestSucceeded(response);
+    tested.onRequestSucceeded(httpResponse);
     tested.onResponseProcessingFailed(new IOException("Invalid response code"));
   }
 
   private void whenUnexpectedErrorAfterResponseProcessing() {
     tested.onRequestCreation(endpointRequest);
-    tested.onRequestSucceeded(response);
+    tested.onRequestSucceeded(httpResponse);
     tested.onResponseCodeSuccessful();
     tested.onDifferentError(new NullPointerException("Internal reference null"));
   }
@@ -232,39 +254,39 @@ class HttpActionLoggerTest {
   private void thenLogContainsRequestData(boolean positive) {
     JsonObject logs = tested.getJsonLog().getJsonObject("logs");
     if (positive) {
-      assertNotNull(logs.getJsonObject("request"));
-      assertRequestLogs(logs.getJsonObject("request"));
+      assertNotNull(logs.getJsonObject(REQUEST));
+      assertRequestLogs(logs.getJsonObject(REQUEST));
     } else {
-      assertNull(logs.getJsonObject("request"));
+      assertNull(logs.getJsonObject(REQUEST));
     }
   }
 
   private void thenLogContainsResponse(boolean positive) {
     JsonObject logs = tested.getJsonLog().getJsonObject("logs");
     if (positive) {
-      assertNotNull(logs.getJsonObject("response"));
-      assertResponseLogs(logs.getJsonObject("response"));
+      assertNotNull(logs.getJsonObject(RESPONSE));
+      assertResponseLogs(logs.getJsonObject(RESPONSE));
     } else {
-      assertNull(logs.getJsonObject("response"));
+      assertNull(logs.getJsonObject(RESPONSE));
     }
   }
 
   private void thenLogContainsResponseBody(boolean positive) {
     JsonObject logs = tested.getJsonLog().getJsonObject("logs");
     if (positive) {
-      assertNotNull(logs.getString("responseBody"));
+      assertNotNull(logs.getString(RESPONSE_BODY));
     } else {
-      assertNull(logs.getString("responseBody"));
+      assertNull(logs.getString(RESPONSE_BODY));
     }
   }
 
   private void thenLogContainsError(boolean positive) {
     JsonObject logs = tested.getJsonLog().getJsonObject("logs");
     if (positive) {
-      assertNotNull(logs.getJsonArray("errors"));
-      assertErrorLogs(logs.getJsonArray("errors"));
+      assertNotNull(logs.getJsonArray(ERRORS));
+      assertErrorLogs(logs.getJsonArray(ERRORS));
     } else {
-      assertNull(logs.getJsonObject("errors"));
+      assertNull(logs.getJsonArray(ERRORS));
     }
   }
 

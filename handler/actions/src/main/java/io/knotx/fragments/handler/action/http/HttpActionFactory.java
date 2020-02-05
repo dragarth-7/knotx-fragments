@@ -16,6 +16,7 @@
 package io.knotx.fragments.handler.action.http;
 
 import io.knotx.fragments.handler.action.exception.ActionConfigurationException;
+import io.knotx.fragments.handler.action.http.options.HttpActionOptions;
 import io.knotx.fragments.handler.api.Action;
 import io.knotx.fragments.handler.api.ActionFactory;
 import io.knotx.fragments.handler.api.Cacheable;

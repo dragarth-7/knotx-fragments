@@ -19,6 +19,9 @@ import static io.knotx.fragments.handler.api.domain.FragmentResult.ERROR_TRANSIT
 import static io.netty.handler.codec.http.HttpStatusClass.SUCCESS;
 
 import io.knotx.fragments.api.Fragment;
+import io.knotx.fragments.handler.action.http.log.HttpActionLogger;
+import io.knotx.fragments.handler.action.http.options.EndpointOptions;
+import io.knotx.fragments.handler.action.http.options.HttpActionOptions;
 import io.knotx.fragments.handler.api.Action;
 import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
 import io.knotx.fragments.handler.api.domain.FragmentContext;
@@ -90,8 +93,10 @@ public class HttpAction implements Action {
   }
 
   @Override
-  public void apply(FragmentContext fragmentContext, Handler<AsyncResult<FragmentResult>> resultHandler) {
-    HttpActionLogger httpActionLogger = HttpActionLogger.create(actionAlias, logLevel, endpointOptions);
+  public void apply(FragmentContext fragmentContext,
+      Handler<AsyncResult<FragmentResult>> resultHandler) {
+    HttpActionLogger httpActionLogger = HttpActionLogger
+        .create(actionAlias, logLevel, endpointOptions);
     process(fragmentContext, httpActionLogger)
         .map(Future::succeededFuture)
         .map(future -> future.setHandler(resultHandler))
@@ -132,8 +137,10 @@ public class HttpAction implements Action {
     return request;
   }
 
-  private FragmentResult errorTransition(FragmentContext fragmentContext, HttpActionLogger actionLogger) {
-    return new FragmentResult(fragmentContext.getFragment(), FragmentResult.ERROR_TRANSITION, actionLogger.getJsonLog());
+  private FragmentResult errorTransition(FragmentContext fragmentContext,
+      HttpActionLogger actionLogger) {
+    return new FragmentResult(fragmentContext.getFragment(), FragmentResult.ERROR_TRANSITION,
+        actionLogger.getJsonLog());
   }
 
   private void addPredicates(HttpRequest<Buffer> request) {

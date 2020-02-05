@@ -17,6 +17,7 @@ package io.knotx.fragments.handler.action.http;
 
 import io.knotx.commons.http.request.AllowedHeadersFilter;
 import io.knotx.commons.http.request.MultiMapCollector;
+import io.knotx.fragments.handler.action.http.options.EndpointOptions;
 import io.knotx.fragments.handler.api.domain.FragmentContext;
 import io.knotx.server.api.context.ClientRequest;
 import io.knotx.server.common.placeholders.PlaceholdersResolver;

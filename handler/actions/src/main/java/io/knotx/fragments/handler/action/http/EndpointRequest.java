@@ -17,7 +17,7 @@ package io.knotx.fragments.handler.action.http;
 
 import io.vertx.reactivex.core.MultiMap;
 
-class EndpointRequest {
+public class EndpointRequest {
 
   private final String path;
   private final MultiMap headers;

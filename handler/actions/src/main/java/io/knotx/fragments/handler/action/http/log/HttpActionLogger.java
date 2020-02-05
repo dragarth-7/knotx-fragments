@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.knotx.fragments.handler.action.http;
+package io.knotx.fragments.handler.action.http.log;
 
 import static io.netty.handler.codec.http.HttpStatusClass.CLIENT_ERROR;
 import static io.netty.handler.codec.http.HttpStatusClass.SERVER_ERROR;
 
+import io.knotx.fragments.handler.action.http.options.EndpointOptions;
+import io.knotx.fragments.handler.action.http.EndpointRequest;
 import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
 import io.knotx.fragments.handler.api.actionlog.ActionLogger;
 import io.vertx.core.http.HttpMethod;
@@ -28,7 +30,7 @@ import io.vertx.reactivex.core.buffer.Buffer;
 import io.vertx.reactivex.ext.web.client.HttpResponse;
 import org.apache.commons.lang3.StringUtils;
 
-class HttpActionLogger {
+public class HttpActionLogger {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(HttpActionLogger.class);
 
@@ -48,32 +50,32 @@ class HttpActionLogger {
     this.endpointOptions = endpointOptions;
   }
 
-  static HttpActionLogger create(String actionAlias, ActionLogLevel logLevel, EndpointOptions endpointOptions) {
+  public static HttpActionLogger create(String actionAlias, ActionLogLevel logLevel, EndpointOptions endpointOptions) {
     return new HttpActionLogger(ActionLogger.create(actionAlias, logLevel), endpointOptions);
   }
 
-  JsonObject getJsonLog() {
+  public JsonObject getJsonLog() {
     return actionLogger.toLog().toJson();
   }
 
-  void onRequestCreation(EndpointRequest endpointRequest) {
+  public void onRequestCreation(EndpointRequest endpointRequest) {
     this.endpointRequest = endpointRequest;
     logRequest(ActionLogLevel.INFO);
   }
 
-  void onRequestSucceeded(HttpResponse<Buffer> response) {
+  public void onRequestSucceeded(HttpResponse<Buffer> response) {
     this.httpResponseData = HttpResponseData.from(response);
     this.httpResponseBody = response.body();
     logResponse(ActionLogLevel.INFO);
     logResponseOnVertxLogger();
   }
 
-  void onRequestFailed(Throwable throwable) {
+  public void onRequestFailed(Throwable throwable) {
     logRequest(ActionLogLevel.ERROR);
     logError(throwable);
   }
 
-  void onResponseCodeUnsuccessful(Throwable throwable) {
+  public void onResponseCodeUnsuccessful(Throwable throwable) {
     logRequest(ActionLogLevel.ERROR);
     if(httpResponseData != null) {
       logResponse(ActionLogLevel.ERROR);
@@ -81,17 +83,17 @@ class HttpActionLogger {
     logError(throwable);
   }
 
-  void onResponseProcessingFailed(Throwable throwable) {
+  public void onResponseProcessingFailed(Throwable throwable) {
     logRequest(ActionLogLevel.ERROR);
     logResponse(ActionLogLevel.ERROR);
     logError(throwable);
   }
 
-  void onResponseCodeSuccessful() {
+  public void onResponseCodeSuccessful() {
     logResponseBody();
   }
 
-  void onDifferentError(Throwable throwable) {
+  public void onDifferentError(Throwable throwable) {
     if(endpointRequest != null) {
       logRequest(ActionLogLevel.ERROR);
     }
