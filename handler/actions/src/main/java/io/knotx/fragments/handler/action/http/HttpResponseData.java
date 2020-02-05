@@ -55,16 +55,6 @@ public class HttpResponseData {
     );
   }
 
-  public static HttpResponseData from(EndpointResponse endpointResponse) {
-    return new HttpResponseData(
-        String.valueOf(endpointResponse.getHttpVersion()),
-        String.valueOf(endpointResponse.getStatusCode()),
-        endpointResponse.getStatusMessage(),
-        endpointResponse.getHeaders(),
-        endpointResponse.getTrailers()
-    );
-  }
-
   public JsonObject toJson() {
     return new JsonObject()
         .put(HTTP_VERSION_KEY, httpVersion)

@@ -111,7 +111,7 @@ public class HttpAction implements Action {
                 .onErrorReturn(HttpAction::handleTimeout)
                 .map(response -> createFragmentResult(fragmentContext, request, response,
                     httpActionLogger)))
-        .doOnError(httpActionLogger::error)
+        .doOnError(httpActionLogger::onError)
         .onErrorReturn(error -> errorTransition(fragmentContext, httpActionLogger));
   }
 
