@@ -73,17 +73,31 @@ class HttpActionLogger {
     logError(throwable);
   }
 
+  void onResponseCodeUnsuccessful(Throwable throwable) {
+    logRequest(ActionLogLevel.ERROR);
+    if(httpResponseData != null) {
+      logResponse(ActionLogLevel.ERROR);
+    }
+    logError(throwable);
+  }
+
   void onResponseProcessingFailed(Throwable throwable) {
     logRequest(ActionLogLevel.ERROR);
     logResponse(ActionLogLevel.ERROR);
     logError(throwable);
   }
 
-  void onResponseCodeVerified() {
+  void onResponseCodeSuccessful() {
     logResponseBody();
   }
 
-  void onError(Throwable throwable) {
+  void onDifferentError(Throwable throwable) {
+    if(endpointRequest != null) {
+      logRequest(ActionLogLevel.ERROR);
+    }
+    if(httpResponseData != null) {
+      logResponse(ActionLogLevel.ERROR);
+    }
     logError(throwable);
   }
 

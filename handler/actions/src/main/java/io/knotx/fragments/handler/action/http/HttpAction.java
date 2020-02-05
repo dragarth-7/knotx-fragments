@@ -111,7 +111,7 @@ public class HttpAction implements Action {
                 .onErrorReturn(HttpAction::handleTimeout)
                 .map(response -> createFragmentResult(fragmentContext, request, response,
                     httpActionLogger)))
-        .doOnError(httpActionLogger::onError)
+        .doOnError(httpActionLogger::onDifferentError)
         .onErrorReturn(error -> errorTransition(fragmentContext, httpActionLogger));
   }
 
@@ -167,16 +167,16 @@ public class HttpAction implements Action {
     final ActionPayload payload;
     final String transition;
     if (SUCCESS.contains(endpointResponse.getStatusCode().code())) {
-      actionLogger.onResponseCodeVerified();
+      actionLogger.onResponseCodeSuccessful();
       payload = getActionPayload(endpointResponse, actionLogger, request);
       transition = FragmentResult.SUCCESS_TRANSITION;
     } else {
+      actionLogger.onResponseCodeUnsuccessful(new IOException(
+          "The service responded with unsuccessful status code: " + endpointResponse.getStatusCode()
+              .code()));
       payload = handleErrorResponse(request, endpointResponse.getStatusCode().toString(),
           endpointResponse.getStatusMessage());
       transition = getErrorTransition(endpointResponse);
-      actionLogger.onResponseProcessingFailed(new IOException(
-          "The service responded with unsuccessful status code: " + endpointResponse.getStatusCode()
-              .code()));
     }
     updateResponseMetadata(endpointResponse, payload);
     Fragment fragment = fragmentContext.getFragment();
