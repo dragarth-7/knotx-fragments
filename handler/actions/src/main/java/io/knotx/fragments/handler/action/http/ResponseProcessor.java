@@ -1,19 +1,19 @@
 package io.knotx.fragments.handler.action.http;
 
 import static io.knotx.fragments.handler.api.domain.FragmentResult.ERROR_TRANSITION;
-import static io.netty.handler.codec.http.HttpStatusClass.SUCCESS;
 
-import io.knotx.fragments.api.Fragment;
+import io.knotx.fragments.handler.action.helper.MultiMapTransformer;
+import io.knotx.fragments.handler.action.http.HttpAction.HttpActionResult;
 import io.knotx.fragments.handler.action.http.log.HttpActionLogger;
 import io.knotx.fragments.handler.action.http.options.HttpActionOptions;
-import io.knotx.fragments.handler.api.domain.FragmentContext;
 import io.knotx.fragments.handler.api.domain.FragmentResult;
 import io.knotx.fragments.handler.api.domain.payload.ActionPayload;
 import io.knotx.fragments.handler.api.domain.payload.ActionRequest;
+import io.knotx.fragments.handler.api.domain.payload.ActionResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpStatusClass;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.reactivex.core.MultiMap;
 import java.io.IOException;
 import org.apache.commons.lang3.StringUtils;
 
@@ -28,79 +28,92 @@ public class ResponseProcessor {
   private static final String JSON = "JSON";
   private final boolean isJsonPredicate;
   private final boolean isForceJson;
-  private final String actionAlias;
 
-  ResponseProcessor(HttpActionOptions httpActionOptions, String actionAlias) {
+  ResponseProcessor(HttpActionOptions httpActionOptions) {
     this.isJsonPredicate = httpActionOptions.getResponseOptions().getPredicates()
         .contains(JSON);
     this.isForceJson = httpActionOptions.getResponseOptions().isForceJson();
-    this.actionAlias = actionAlias;
   }
 
-  FragmentResult createFragmentResult(FragmentContext fragmentContext,
-      EndpointRequest endpointRequest, EndpointResponse endpointResponse,
-      HttpActionLogger actionLogger) {
-    ActionRequest request = createActionRequest(endpointRequest);
-    final ActionPayload payload;
-    final String transition;
-    if (SUCCESS.contains(endpointResponse.getStatusCode().code())) {
-      actionLogger.onResponseCodeSuccessful();
-      payload = getActionPayload(endpointResponse, actionLogger, request);
-      transition = FragmentResult.SUCCESS_TRANSITION;
+  HttpActionResult handleResponse(EndpointRequest endpointRequest,
+      EndpointResponse endpointResponse, HttpActionLogger actionLogger) {
+    if (isSuccess(endpointResponse)) {
+      return handleWithSuccessResponseCode(endpointRequest, endpointResponse, actionLogger);
     } else {
-      actionLogger.onResponseCodeUnsuccessful(new IOException(
-          "The service responded with unsuccessful status code: " + endpointResponse.getStatusCode()
-              .code()));
-      payload = handleErrorResponse(request, endpointResponse.getStatusCode().toString(),
-          endpointResponse.getStatusMessage());
-      transition = getErrorTransition(endpointResponse);
-    }
-    updateResponseMetadata(endpointResponse, payload);
-    Fragment fragment = fragmentContext.getFragment();
-    fragment.appendPayload(actionAlias, payload.toJson());
-    return new FragmentResult(fragment, transition, actionLogger.getJsonLog());
-  }
-
-  private String getErrorTransition(EndpointResponse endpointResponse) {
-    if (isTimeout(endpointResponse)) {
-      return TIMEOUT_TRANSITION;
-    } else {
-      return ERROR_TRANSITION;
+      return handleWithErrorResponseCode(endpointRequest, endpointResponse, actionLogger);
     }
   }
 
-  private ActionPayload getActionPayload(EndpointResponse endpointResponse,
-      HttpActionLogger actionLogger, ActionRequest request) {
-    try {
-      return handleSuccessResponse(endpointResponse, request);
-    } catch (Exception e) {
-      actionLogger.onResponseProcessingFailed(e);
-      throw e;
-    }
+  private HttpActionResult handleWithSuccessResponseCode(EndpointRequest endpointRequest,
+      EndpointResponse endpointResponse, HttpActionLogger actionLogger) {
+    actionLogger.onResponseCodeSuccessful();
+    ActionPayload payload = successResponsePayload(endpointRequest, endpointResponse, actionLogger);
+    return new HttpActionResult(payload, FragmentResult.SUCCESS_TRANSITION);
+  }
+
+  private HttpActionResult handleWithErrorResponseCode(EndpointRequest endpointRequest,
+      EndpointResponse endpointResponse, HttpActionLogger actionLogger) {
+    actionLogger.onResponseCodeUnsuccessful(new IOException(
+        "The service responded with unsuccessful status code: " + endpointResponse.getStatusCode()
+            .code()));
+    ActionPayload payload = errorResponsePayload(endpointRequest, endpointResponse);
+    return new HttpActionResult(payload, getErrorTransition(endpointResponse));
+  }
+
+  private ActionPayload successResponsePayload(EndpointRequest endpointRequest,
+      EndpointResponse endpointResponse, HttpActionLogger httpActionLogger) {
+    ActionRequest actionRequest = createActionRequest(endpointRequest);
+    ActionResponse actionResponse = createSuccessActionResponse(endpointResponse);
+    Object result = tryToRetrieveResultFrom(endpointResponse, httpActionLogger);
+    return ActionPayload.create(actionRequest, actionResponse, result);
+  }
+
+  private ActionPayload errorResponsePayload(EndpointRequest endpointRequest,
+      EndpointResponse endpointResponse) {
+    ActionRequest actionRequest = createActionRequest(endpointRequest);
+    ActionResponse actionResponse = createErrorActionResponse(endpointResponse);
+    return ActionPayload.noResult(actionRequest, actionResponse);
   }
 
   private ActionRequest createActionRequest(EndpointRequest endpointRequest) {
     ActionRequest request = new ActionRequest(HTTP_ACTION_TYPE, endpointRequest.getPath());
-    request.appendMetadata(METADATA_HEADERS_KEY, headersToJsonObject(endpointRequest.getHeaders()));
+    request.appendMetadata(METADATA_HEADERS_KEY,
+        MultiMapTransformer.headersToJsonObject(endpointRequest.getHeaders()));
     return request;
   }
 
-  private void updateResponseMetadata(EndpointResponse response, ActionPayload payload) {
-    payload.getResponse()
-        .appendMetadata(METADATA_STATUS_CODE_KEY, String.valueOf(response.getStatusCode().code()))
-        .appendMetadata(METADATA_HEADERS_KEY, headersToJsonObject(response.getHeaders()));
+  private ActionResponse createSuccessActionResponse(EndpointResponse endpointResponse) {
+    return ActionResponse.success()
+        .appendMetadata(METADATA_STATUS_CODE_KEY,
+            String.valueOf(endpointResponse.getStatusCode().code()))
+        .appendMetadata(METADATA_HEADERS_KEY,
+            MultiMapTransformer.headersToJsonObject(endpointResponse.getHeaders()));
   }
 
-  private ActionPayload handleErrorResponse(ActionRequest request, String statusCode,
-      String statusMessage) {
-    return ActionPayload.error(request, statusCode, statusMessage);
+  private ActionResponse createErrorActionResponse(EndpointResponse endpointResponse) {
+    return ActionResponse
+        .error(endpointResponse.getStatusCode().toString(), endpointResponse.getStatusMessage())
+        .appendMetadata(METADATA_STATUS_CODE_KEY,
+            String.valueOf(endpointResponse.getStatusCode().code()))
+        .appendMetadata(METADATA_HEADERS_KEY,
+            MultiMapTransformer.headersToJsonObject(endpointResponse.getHeaders()));
   }
 
-  private ActionPayload handleSuccessResponse(EndpointResponse response, ActionRequest request) {
+  private Object tryToRetrieveResultFrom(EndpointResponse endpointResponse,
+      HttpActionLogger httpActionLogger) {
+    try {
+      return retrieveResultFrom(endpointResponse);
+    } catch (Exception exception) {
+      httpActionLogger.onResponseProcessingFailed(exception);
+      throw exception;
+    }
+  }
+
+  private Object retrieveResultFrom(EndpointResponse response) {
     if (isForceJson || isJsonPredicate || isContentTypeHeaderJson(response)) {
-      return ActionPayload.success(request, bodyToJson(response.getBody().toString()));
+      return bodyToJson(response.getBody().toString());
     } else {
-      return ActionPayload.success(request, response.getBody().toString());
+      return response.getBody().toString();
     }
   }
 
@@ -119,23 +132,20 @@ public class ResponseProcessor {
     }
   }
 
-  private boolean isTimeout(EndpointResponse response) {
-    return HttpResponseStatus.REQUEST_TIMEOUT == response.getStatusCode();
+  private String getErrorTransition(EndpointResponse endpointResponse) {
+    if (isTimeout(endpointResponse)) {
+      return TIMEOUT_TRANSITION;
+    } else {
+      return ERROR_TRANSITION;
+    }
   }
 
-  private JsonObject headersToJsonObject(MultiMap headers) {
-    JsonObject responseHeaders = new JsonObject();
-    headers.entries().forEach(entry -> {
-      final JsonArray values;
-      if (responseHeaders.containsKey(entry.getKey())) {
-        values = responseHeaders.getJsonArray(entry.getKey());
-      } else {
-        values = new JsonArray();
-      }
-      responseHeaders.put(entry.getKey(), values.add(entry.getValue())
-      );
-    });
-    return responseHeaders;
+  private boolean isSuccess(EndpointResponse response) {
+    return HttpStatusClass.SUCCESS.contains(response.getStatusCode().code());
+  }
+
+  private boolean isTimeout(EndpointResponse response) {
+    return HttpResponseStatus.REQUEST_TIMEOUT == response.getStatusCode();
   }
 
 }

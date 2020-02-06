@@ -15,6 +15,7 @@
  */
 package io.knotx.fragments.handler.action.http;
 
+import io.knotx.fragments.api.Fragment;
 import io.knotx.fragments.handler.action.http.log.HttpActionLogger;
 import io.knotx.fragments.handler.action.http.options.EndpointOptions;
 import io.knotx.fragments.handler.action.http.options.HttpActionOptions;
@@ -22,6 +23,7 @@ import io.knotx.fragments.handler.api.Action;
 import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
 import io.knotx.fragments.handler.api.domain.FragmentContext;
 import io.knotx.fragments.handler.api.domain.FragmentResult;
+import io.knotx.fragments.handler.api.domain.payload.ActionPayload;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.Single;
 import io.reactivex.exceptions.Exceptions;
@@ -42,8 +44,7 @@ public class HttpAction implements Action {
   private final String actionAlias;
   private final ActionLogLevel logLevel;
   private final ResponseProcessor responseProcessor;
-
-  private EndpointRequestComposer requestComposer;
+  private final EndpointRequestComposer requestComposer;
 
   HttpAction(WebClient webClient, HttpActionOptions httpActionOptions, String actionAlias) {
     this.endpointOptions = httpActionOptions.getEndpointOptions();
@@ -52,7 +53,7 @@ public class HttpAction implements Action {
         .fromConfig(httpActionOptions.getLogLevel(), ActionLogLevel.ERROR);
     this.endpointInvoker = new EndpointInvoker(webClient, httpActionOptions);
     this.requestComposer = new EndpointRequestComposer(endpointOptions);
-    this.responseProcessor = new ResponseProcessor(httpActionOptions, actionAlias);
+    this.responseProcessor = new ResponseProcessor(httpActionOptions);
   }
 
   @Override
@@ -77,16 +78,15 @@ public class HttpAction implements Action {
                 .doOnError(httpActionLogger::onRequestFailed)
                 .map(EndpointResponse::fromHttpResponse)
                 .onErrorReturn(HttpAction::handleTimeout)
-                .map(response -> responseProcessor.createFragmentResult(fragmentContext, request, response,
-                    httpActionLogger)))
+                .map(response -> responseProcessor.handleResponse(request, response, httpActionLogger)))
+        .map(result -> composeFragmentResult(fragmentContext.getFragment(), result, httpActionLogger))
         .doOnError(httpActionLogger::onDifferentError)
         .onErrorReturn(error -> errorTransition(fragmentContext, httpActionLogger));
   }
 
-  private FragmentResult errorTransition(FragmentContext fragmentContext,
-      HttpActionLogger actionLogger) {
-    return new FragmentResult(fragmentContext.getFragment(), FragmentResult.ERROR_TRANSITION,
-        actionLogger.getJsonLog());
+  private FragmentResult composeFragmentResult(Fragment fragment, HttpActionResult result, HttpActionLogger httpActionLogger) {
+    fragment.appendPayload(actionAlias, result.getActionPayload().toJson());
+    return new FragmentResult(fragment, result.getTransition(), httpActionLogger.getJsonLog());
   }
 
   private static EndpointResponse handleTimeout(Throwable throwable) {
@@ -96,4 +96,29 @@ public class HttpAction implements Action {
     }
     throw Exceptions.propagate(throwable);
   }
+
+  private FragmentResult errorTransition(FragmentContext fragmentContext,
+      HttpActionLogger actionLogger) {
+    return new FragmentResult(fragmentContext.getFragment(), FragmentResult.ERROR_TRANSITION,
+        actionLogger.getJsonLog());
+  }
+
+  static class HttpActionResult {
+    private ActionPayload actionPayload;
+    private String transition;
+
+    HttpActionResult(ActionPayload actionPayload, String transition) {
+      this.actionPayload = actionPayload;
+      this.transition = transition;
+    }
+
+    ActionPayload getActionPayload() {
+      return actionPayload;
+    }
+
+    String getTransition() {
+      return transition;
+    }
+  }
+
 }
