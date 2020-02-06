@@ -34,21 +34,13 @@ import io.reactivex.exceptions.Exceptions;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.eventbus.ReplyFailure;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.ext.web.client.predicate.ResponsePredicate;
 import io.vertx.reactivex.core.MultiMap;
-import io.vertx.reactivex.core.buffer.Buffer;
-import io.vertx.reactivex.ext.web.client.HttpRequest;
-import io.vertx.reactivex.ext.web.client.HttpResponse;
 import io.vertx.reactivex.ext.web.client.WebClient;
 import java.io.IOException;
-import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.StringUtils;
 
@@ -64,27 +56,19 @@ public class HttpAction implements Action {
   private static final String CONTENT_TYPE = "Content-Type";
   private final boolean isJsonPredicate;
   private final boolean isForceJson;
+  private final EndpointInvoker endpointInvoker;
 
   private final EndpointOptions endpointOptions;
-  private final WebClient webClient;
   private final String actionAlias;
-  private final HttpActionOptions httpActionOptions;
-  private final ResponsePredicatesProvider predicatesProvider;
   private final ActionLogLevel logLevel;
-  private static final ResponsePredicate IS_JSON_RESPONSE = ResponsePredicate
-      .create(ResponsePredicate.JSON, result -> {
-        throw new ReplyException(ReplyFailure.RECIPIENT_FAILURE, result.message());
-      });
 
   private EndpointRequestComposer requestComposer;
 
   HttpAction(WebClient webClient, HttpActionOptions httpActionOptions, String actionAlias) {
-    this.httpActionOptions = httpActionOptions;
-    this.webClient = webClient;
+    this.endpointInvoker = new EndpointInvoker(webClient, httpActionOptions);
     this.endpointOptions = httpActionOptions.getEndpointOptions();
     this.actionAlias = actionAlias;
-    predicatesProvider = new ResponsePredicatesProvider();
-    this.isJsonPredicate = this.httpActionOptions.getResponseOptions().getPredicates()
+    this.isJsonPredicate = httpActionOptions.getResponseOptions().getPredicates()
         .contains(JSON);
     this.isForceJson = httpActionOptions.getResponseOptions().isForceJson();
     this.logLevel = ActionLogLevel
@@ -109,7 +93,7 @@ public class HttpAction implements Action {
         .map(requestComposer::createEndpointRequest)
         .doOnSuccess(httpActionLogger::onRequestCreation)
         .flatMap(
-            request -> invokeEndpoint(request)
+            request -> endpointInvoker.invokeEndpoint(request)
                 .doOnSuccess(httpActionLogger::onRequestSucceeded)
                 .doOnError(httpActionLogger::onRequestFailed)
                 .map(EndpointResponse::fromHttpResponse)
@@ -120,36 +104,9 @@ public class HttpAction implements Action {
         .onErrorReturn(error -> errorTransition(fragmentContext, httpActionLogger));
   }
 
-  private Single<HttpResponse<Buffer>> invokeEndpoint(EndpointRequest request) {
-    return Single.just(request)
-        .map(this::createHttpRequest)
-        .doOnSuccess(this::addPredicates)
-        .flatMap(HttpRequest::rxSend);
-  }
-
-  private HttpRequest<Buffer> createHttpRequest(EndpointRequest endpointRequest) {
-    HttpRequest<Buffer> request = webClient
-        .request(HttpMethod.GET, endpointOptions.getPort(), endpointOptions.getDomain(),
-            endpointRequest.getPath())
-        .timeout(httpActionOptions.getRequestTimeoutMs());
-    endpointRequest.getHeaders().entries()
-        .forEach(entry -> request.putHeader(entry.getKey(), entry.getValue()));
-    return request;
-  }
-
-  private FragmentResult errorTransition(FragmentContext fragmentContext,
-      HttpActionLogger actionLogger) {
+  private FragmentResult errorTransition(FragmentContext fragmentContext, HttpActionLogger actionLogger) {
     return new FragmentResult(fragmentContext.getFragment(), FragmentResult.ERROR_TRANSITION,
         actionLogger.getJsonLog());
-  }
-
-  private void addPredicates(HttpRequest<Buffer> request) {
-    if (isJsonPredicate) {
-      request.expect(io.vertx.reactivex.ext.web.client.predicate.ResponsePredicate
-          .newInstance(IS_JSON_RESPONSE));
-    }
-    attachResponsePredicatesToRequest(request,
-        httpActionOptions.getResponseOptions().getPredicates());
   }
 
   private static EndpointResponse handleTimeout(Throwable throwable) {
@@ -158,13 +115,6 @@ public class HttpAction implements Action {
       return new EndpointResponse(HttpResponseStatus.REQUEST_TIMEOUT);
     }
     throw Exceptions.propagate(throwable);
-  }
-
-  private void attachResponsePredicatesToRequest(HttpRequest<Buffer> request,
-      Set<String> predicates) {
-    predicates.stream()
-        .filter(p -> !JSON.equals(p))
-        .forEach(p -> request.expect(predicatesProvider.fromName(p)));
   }
 
   private FragmentResult createFragmentResult(FragmentContext fragmentContext,
@@ -192,13 +142,11 @@ public class HttpAction implements Action {
   }
 
   private String getErrorTransition(EndpointResponse endpointResponse) {
-    String transition;
     if (isTimeout(endpointResponse)) {
-      transition = TIMEOUT_TRANSITION;
+      return TIMEOUT_TRANSITION;
     } else {
-      transition = ERROR_TRANSITION;
+      return ERROR_TRANSITION;
     }
-    return transition;
   }
 
   private ActionPayload getActionPayload(EndpointResponse endpointResponse,
@@ -242,15 +190,13 @@ public class HttpAction implements Action {
   }
 
   private Object bodyToJson(String responseBody) {
-    Object responseData;
     if (StringUtils.isBlank(responseBody)) {
-      responseData = new JsonObject();
+      return new JsonObject();
     } else if (responseBody.startsWith("[")) {
-      responseData = new JsonArray(responseBody);
+      return new JsonArray(responseBody);
     } else {
-      responseData = new JsonObject(responseBody);
+      return new JsonObject(responseBody);
     }
-    return responseData;
   }
 
   private boolean isTimeout(EndpointResponse response) {
