@@ -15,14 +15,13 @@
  */
 package io.knotx.fragments.handler.action.http.log;
 
+import io.knotx.fragments.handler.action.helper.MultiMapTransformer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.MultiMap;
 import io.vertx.reactivex.core.buffer.Buffer;
 import io.vertx.reactivex.ext.web.client.HttpResponse;
-import java.util.List;
-import java.util.Map.Entry;
 
-public class HttpResponseData {
+class HttpResponseData {
 
   private static final String HTTP_VERSION_KEY = "httpVersion";
   private static final String STATUS_CODE_KEY = "statusCode";
@@ -45,7 +44,7 @@ public class HttpResponseData {
     this.trailers = trailers;
   }
 
-  public static HttpResponseData from(HttpResponse<Buffer> response) {
+  static HttpResponseData from(HttpResponse<Buffer> response) {
     return new HttpResponseData(
         String.valueOf(response.version()),
         String.valueOf(response.statusCode()),
@@ -55,39 +54,21 @@ public class HttpResponseData {
     );
   }
 
-  public JsonObject toJson() {
+  JsonObject toJson() {
     return new JsonObject()
         .put(HTTP_VERSION_KEY, httpVersion)
         .put(STATUS_CODE_KEY, statusCode)
         .put(STATUS_MESSAGE_KEY, statusMessage)
-        .put(HEADERS_KEY, multiMapToJson(headers.entries()))
-        .put(TRAILERS_KEY, multiMapToJson(trailers.entries()));
+        .put(HEADERS_KEY, MultiMapTransformer.toJson(headers))
+        .put(TRAILERS_KEY, MultiMapTransformer.toJson(trailers));
   }
 
-  public String getHttpVersion() {
-    return httpVersion;
-  }
-
-  public String getStatusCode() {
+  String getStatusCode() {
     return statusCode;
   }
 
-  public String getStatusMessage() {
-    return statusMessage;
-  }
-
-  public MultiMap getHeaders() {
+  MultiMap getHeaders() {
     return headers;
-  }
-
-  public MultiMap getTrailers() {
-    return trailers;
-  }
-
-  private static JsonObject multiMapToJson(List<Entry<String, String>> entries) {
-    JsonObject json = new JsonObject();
-    entries.forEach(e -> json.put(e.getKey(), e.getValue()));
-    return json;
   }
 
   @Override

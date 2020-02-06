@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.knotx.fragments.handler.action.http;
+package io.knotx.fragments.handler.action.http.request;
 
 import io.knotx.commons.http.request.AllowedHeadersFilter;
 import io.knotx.commons.http.request.MultiMapCollector;
@@ -26,18 +26,18 @@ import io.vertx.reactivex.core.MultiMap;
 import java.util.List;
 import java.util.regex.Pattern;
 
-class EndpointRequestComposer {
+public class EndpointRequestComposer {
 
   private static final String PLACEHOLDER_PREFIX_PAYLOAD = "payload";
   private static final String PLACEHOLDER_PREFIX_CONFIG = "config";
 
   private EndpointOptions endpointOptions;
 
-  EndpointRequestComposer(EndpointOptions endpointOptions) {
+  public EndpointRequestComposer(EndpointOptions endpointOptions) {
     this.endpointOptions = endpointOptions;
   }
 
-  EndpointRequest createEndpointRequest(FragmentContext context) {
+  public EndpointRequest createEndpointRequest(FragmentContext context) {
     ClientRequest clientRequest = context.getClientRequest();
     SourceDefinitions sourceDefinitions = buildSourceDefinitions(context, clientRequest);
     String path = PlaceholdersResolver.resolve(endpointOptions.getPath(), sourceDefinitions);

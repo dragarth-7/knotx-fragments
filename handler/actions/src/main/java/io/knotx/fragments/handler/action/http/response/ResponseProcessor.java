@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.knotx.fragments.handler.action.http;
+package io.knotx.fragments.handler.action.http.response;
 
 import static io.knotx.fragments.handler.api.domain.FragmentResult.ERROR_TRANSITION;
 
@@ -21,6 +21,7 @@ import io.knotx.fragments.handler.action.helper.MultiMapTransformer;
 import io.knotx.fragments.handler.action.http.HttpAction.HttpActionResult;
 import io.knotx.fragments.handler.action.http.log.HttpActionLogger;
 import io.knotx.fragments.handler.action.http.options.HttpActionOptions;
+import io.knotx.fragments.handler.action.http.request.EndpointRequest;
 import io.knotx.fragments.handler.api.domain.FragmentResult;
 import io.knotx.fragments.handler.api.domain.payload.ActionPayload;
 import io.knotx.fragments.handler.api.domain.payload.ActionRequest;
@@ -44,13 +45,13 @@ public class ResponseProcessor {
   private final boolean isJsonPredicate;
   private final boolean isForceJson;
 
-  ResponseProcessor(HttpActionOptions httpActionOptions) {
+  public ResponseProcessor(HttpActionOptions httpActionOptions) {
     this.isJsonPredicate = httpActionOptions.getResponseOptions().getPredicates()
         .contains(JSON);
     this.isForceJson = httpActionOptions.getResponseOptions().isForceJson();
   }
 
-  HttpActionResult handleResponse(EndpointRequest endpointRequest,
+  public HttpActionResult handleResponse(EndpointRequest endpointRequest,
       EndpointResponse endpointResponse, HttpActionLogger actionLogger) {
     if (isSuccess(endpointResponse)) {
       return handleWithSuccessResponseCode(endpointRequest, endpointResponse, actionLogger);
@@ -93,7 +94,7 @@ public class ResponseProcessor {
   private ActionRequest createActionRequest(EndpointRequest endpointRequest) {
     ActionRequest request = new ActionRequest(HTTP_ACTION_TYPE, endpointRequest.getPath());
     request.appendMetadata(METADATA_HEADERS_KEY,
-        MultiMapTransformer.headersToJsonObject(endpointRequest.getHeaders()));
+        MultiMapTransformer.toJson(endpointRequest.getHeaders()));
     return request;
   }
 
@@ -102,7 +103,7 @@ public class ResponseProcessor {
         .appendMetadata(METADATA_STATUS_CODE_KEY,
             String.valueOf(endpointResponse.getStatusCode().code()))
         .appendMetadata(METADATA_HEADERS_KEY,
-            MultiMapTransformer.headersToJsonObject(endpointResponse.getHeaders()));
+            MultiMapTransformer.toJson(endpointResponse.getHeaders()));
   }
 
   private ActionResponse createErrorActionResponse(EndpointResponse endpointResponse) {
@@ -111,7 +112,7 @@ public class ResponseProcessor {
         .appendMetadata(METADATA_STATUS_CODE_KEY,
             String.valueOf(endpointResponse.getStatusCode().code()))
         .appendMetadata(METADATA_HEADERS_KEY,
-            MultiMapTransformer.headersToJsonObject(endpointResponse.getHeaders()));
+            MultiMapTransformer.toJson(endpointResponse.getHeaders()));
   }
 
   private Object tryToRetrieveResultFrom(EndpointResponse endpointResponse,

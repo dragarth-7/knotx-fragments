@@ -18,8 +18,9 @@ package io.knotx.fragments.handler.action.http.log;
 import static io.netty.handler.codec.http.HttpStatusClass.CLIENT_ERROR;
 import static io.netty.handler.codec.http.HttpStatusClass.SERVER_ERROR;
 
+import io.knotx.fragments.handler.action.helper.MultiMapTransformer;
 import io.knotx.fragments.handler.action.http.options.EndpointOptions;
-import io.knotx.fragments.handler.action.http.EndpointRequest;
+import io.knotx.fragments.handler.action.http.request.EndpointRequest;
 import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
 import io.knotx.fragments.handler.api.actionlog.ActionLogger;
 import io.vertx.core.http.HttpMethod;
@@ -130,14 +131,7 @@ public class HttpActionLogger {
 
   private JsonObject getRequestData() {
     return new JsonObject().put("path", endpointRequest.getPath())
-        .put("requestHeaders", getHeadersFromRequest());
-  }
-
-  private JsonObject getHeadersFromRequest() {
-    JsonObject headers = new JsonObject();
-    endpointRequest.getHeaders().entries().forEach(e -> headers.put(e.getKey(), e.getValue()));
-    // TODO: Multimap entries get overwritten?
-    return headers;
+        .put("requestHeaders", MultiMapTransformer.toJson(endpointRequest.getHeaders()));
   }
 
   private JsonObject getResponseData() {

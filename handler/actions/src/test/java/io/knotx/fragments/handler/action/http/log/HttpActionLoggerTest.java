@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import io.knotx.fragments.handler.action.http.options.EndpointOptions;
-import io.knotx.fragments.handler.action.http.EndpointRequest;
+import io.knotx.fragments.handler.action.http.request.EndpointRequest;
 import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
 import io.vertx.core.http.HttpVersion;
 import io.vertx.core.json.JsonArray;

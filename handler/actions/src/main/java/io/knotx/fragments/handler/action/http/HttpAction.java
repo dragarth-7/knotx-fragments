@@ -19,6 +19,9 @@ import io.knotx.fragments.api.Fragment;
 import io.knotx.fragments.handler.action.http.log.HttpActionLogger;
 import io.knotx.fragments.handler.action.http.options.EndpointOptions;
 import io.knotx.fragments.handler.action.http.options.HttpActionOptions;
+import io.knotx.fragments.handler.action.http.request.EndpointRequestComposer;
+import io.knotx.fragments.handler.action.http.response.EndpointResponse;
+import io.knotx.fragments.handler.action.http.response.ResponseProcessor;
 import io.knotx.fragments.handler.api.Action;
 import io.knotx.fragments.handler.api.actionlog.ActionLogLevel;
 import io.knotx.fragments.handler.api.domain.FragmentContext;
@@ -38,13 +41,13 @@ import java.util.concurrent.TimeoutException;
 public class HttpAction implements Action {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(HttpAction.class);
-  private final EndpointInvoker endpointInvoker;
 
-  private final EndpointOptions endpointOptions;
   private final String actionAlias;
   private final ActionLogLevel logLevel;
-  private final ResponseProcessor responseProcessor;
+  private final EndpointOptions endpointOptions;
   private final EndpointRequestComposer requestComposer;
+  private final EndpointInvoker endpointInvoker;
+  private final ResponseProcessor responseProcessor;
 
   HttpAction(WebClient webClient, HttpActionOptions httpActionOptions, String actionAlias) {
     this.endpointOptions = httpActionOptions.getEndpointOptions();
@@ -59,16 +62,16 @@ public class HttpAction implements Action {
   @Override
   public void apply(FragmentContext fragmentContext,
       Handler<AsyncResult<FragmentResult>> resultHandler) {
-    HttpActionLogger httpActionLogger = HttpActionLogger
-        .create(actionAlias, logLevel, endpointOptions);
-    process(fragmentContext, httpActionLogger)
+    Single.just(fragmentContext)
+        .flatMap(this::process)
         .map(Future::succeededFuture)
         .map(future -> future.setHandler(resultHandler))
         .subscribe();
   }
 
-  private Single<FragmentResult> process(FragmentContext fragmentContext,
-      HttpActionLogger httpActionLogger) {
+  private Single<FragmentResult> process(FragmentContext fragmentContext) {
+    HttpActionLogger httpActionLogger = HttpActionLogger
+        .create(actionAlias, logLevel, endpointOptions);
     return Single.just(fragmentContext)
         .map(requestComposer::createEndpointRequest)
         .doOnSuccess(httpActionLogger::onRequestCreation)
@@ -89,6 +92,12 @@ public class HttpAction implements Action {
     return new FragmentResult(fragment, result.getTransition(), httpActionLogger.getJsonLog());
   }
 
+  private static FragmentResult errorTransition(FragmentContext fragmentContext,
+      HttpActionLogger actionLogger) {
+    return new FragmentResult(fragmentContext.getFragment(), FragmentResult.ERROR_TRANSITION,
+        actionLogger.getJsonLog());
+  }
+
   private static EndpointResponse handleTimeout(Throwable throwable) {
     if (throwable instanceof TimeoutException) {
       LOGGER.error("Error timeout: ", throwable);
@@ -97,17 +106,11 @@ public class HttpAction implements Action {
     throw Exceptions.propagate(throwable);
   }
 
-  private FragmentResult errorTransition(FragmentContext fragmentContext,
-      HttpActionLogger actionLogger) {
-    return new FragmentResult(fragmentContext.getFragment(), FragmentResult.ERROR_TRANSITION,
-        actionLogger.getJsonLog());
-  }
-
-  static class HttpActionResult {
+  public static class HttpActionResult {
     private ActionPayload actionPayload;
     private String transition;
 
-    HttpActionResult(ActionPayload actionPayload, String transition) {
+    public HttpActionResult(ActionPayload actionPayload, String transition) {
       this.actionPayload = actionPayload;
       this.transition = transition;
     }

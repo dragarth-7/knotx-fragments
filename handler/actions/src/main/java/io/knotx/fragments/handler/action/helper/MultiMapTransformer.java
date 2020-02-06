@@ -25,19 +25,19 @@ public final class MultiMapTransformer {
     // utility class
   }
 
-  public static JsonObject headersToJsonObject(MultiMap headers) {
-    JsonObject responseHeaders = new JsonObject();
-    headers.entries().forEach(entry -> {
+  public static JsonObject toJson(MultiMap map) {
+    JsonObject output = new JsonObject();
+    map.entries().forEach(entry -> {
       final JsonArray values;
-      if (responseHeaders.containsKey(entry.getKey())) {
-        values = responseHeaders.getJsonArray(entry.getKey());
+      if (output.containsKey(entry.getKey())) {
+        values = output.getJsonArray(entry.getKey());
       } else {
         values = new JsonArray();
       }
-      responseHeaders.put(entry.getKey(), values.add(entry.getValue())
+      output.put(entry.getKey(), values.add(entry.getValue())
       );
     });
-    return responseHeaders;
+    return output;
   }
 
 }
